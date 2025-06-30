@@ -79,7 +79,7 @@ app.post('/registro', (req, res) => {
         return res.status(500).json({ success: false, message: 'Error al registrar' });
       }
 
-      res.status(201).json({ success: true, message: 'Registro exitoso' });
+      res.status(200).json({ success: true, message: 'Registro exitoso' });
     }
   );
 });
