@@ -1,76 +1,62 @@
-require('dotenv').config();
-const express = require('express');
-const mysql = require('mysql');
-const cors = require('cors');
+import express from 'express';
+import mysql from 'mysql';
+import dotenv from 'dotenv';
+import cors from 'cors';
+
+dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Conexión a MySQL
-const db = mysql.createConnection({
+const pool = mysql.createPool({
+  connectionLimit: 10,
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+  database: process.env.DB_NAME
 });
 
-db.connect((err) => {
-  if (err) {
-    console.error('❌ Error de conexión a la base de datos:', err);
-    return;
-  }
-  console.log('✅ Conectado a MySQL');
-});
-
-// Ruta de prueba
-app.get('/', (req, res) => {
-  res.send('API funcionando correctamente 🎉');
-});
-
-// Registro de usuario
-app.post('/register', (req, res) => {
-  const { correo, clave } = req.body;
-
-  if (!correo || !clave) {
-    return res.status(400).json({ success: false, message: 'Faltan campos' });
-  }
-
-  const sql = 'INSERT INTO usuarios (correo, clave) VALUES (?, ?)';
-  db.query(sql, [correo, clave], (err, result) => {
-    if (err) {
-      console.error('❌ Error en registro:', err);
-      return res.status(500).json({ success: false, message: 'Error en el servidor' });
-    }
-    return res.json({ success: true, message: 'Registro exitoso' });
-  });
-});
-
-// Inicio de sesión
+// Ruta para login
 app.post('/login', (req, res) => {
   const { correo, clave } = req.body;
 
-  if (!correo || !clave) {
-    return res.status(400).json({ success: false, message: 'Faltan campos' });
-  }
+  pool.query(
+    'SELECT * FROM usuarios WHERE correo = ? AND clave = ?',
+    [correo, clave],
+    (err, results) => {
+      if (err) {
+        console.error('❌ Error en login:', err);
+        return res.status(500).json({ success: false, message: 'Error en el servidor' });
+      }
 
-  const sql = 'SELECT * FROM usuarios WHERE correo = ? AND clave = ?';
-  db.query(sql, [correo, clave], (err, results) => {
-    if (err) {
-      console.error('❌ Error en login:', err);
-      return res.status(500).json({ success: false, message: 'Error en el servidor' });
+      if (results.length > 0) {
+        res.json({ success: true, message: 'Inicio de sesión exitoso' });
+      } else {
+        res.json({ success: false, message: 'Credenciales inválidas' });
+      }
     }
-
-    if (results.length > 0) {
-      return res.json({ success: true, message: 'Inicio de sesión exitoso' });
-    } else {
-      return res.json({ success: false, message: 'Credenciales inválidas' });
-    }
-  });
+  );
 });
 
-// Puerto del servidor
+// Ruta para registro
+app.post('/register', (req, res) => {
+  const { correo, clave } = req.body;
+
+  pool.query(
+    'INSERT INTO usuarios (correo, clave) VALUES (?, ?)',
+    [correo, clave],
+    (err, result) => {
+      if (err) {
+        console.error('❌ Error en registro:', err);
+        return res.status(500).json({ success: false, message: 'Error en el servidor' });
+      }
+
+      res.status(201).json({ success: true, message: 'Usuario registrado' });
+    }
+  );
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
